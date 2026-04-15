@@ -112,7 +112,7 @@ class DAO_Neo4j:
         parameters = {"attendeeID": attendeeID}
         return self.execute_query(query, parameters)
     
-    
+
     
 
 #------------------------------------------------------------------------------------------------------
@@ -122,12 +122,15 @@ class DAO_MySQL:
     """Data Access Object for MySQL database.
     This class provides methods to connect to a MySQL database and execute queries.
     """
-    def __init__(self, host, user, password, database):
+    def __init__(self, host, user, password, database, dao_neo4j=None):
         self.host = host
         self.user = user
         self.password = password
         self.database = database
         self.connection = None
+        # this allows us to use the doa classes within the menu
+        # Mainly to load relationships into temporary table and then into neo4j
+        self.dao_neo4j = dao_neo4j
 
     def __del__(self):
         """Destructor to ensure the MySQL connection is closed when the object is destroyed."""
@@ -228,6 +231,23 @@ class DAO_MySQL:
         query = "DELETE FROM attendee_connections"
         self.execute_query(query)
         return None, None
+
+    def get_connection_from_neo4j(self, attendeeID):
+        """Get all attendees connected to a specific attendee from Neo4j."""
+        if not self.dao_neo4j:
+            logging.error("Neo4j DAO is not initialized.")
+            return None, "No Neo4j DAO"
+        # Get connected attendees from Neo4j and return the results
+        results, err = self.dao_neo4j.get_connected_attendees(attendeeID)
+        if err:
+            logging.error(f"Error getting connected attendees from Neo4j: {err}")
+            return None, err
+        # now populate the temporary table with the results
+        self.delete_all_attendee_connections()
+        for record in results:
+            connectedAttendeeID = record["AttendeeID"]
+            self.add_attendee_connection(attendeeID, connectedAttendeeID)
+
 
     def create_company(self, companyID, companyName, industry):
         """Create a new company record in the database."""
@@ -683,17 +703,21 @@ def main():
     logging.info("Starting the application...")
     logging.debug("Debug mode is enabled.")
 
-    # try and connect to MySQL database using the provided connection details
-    dao_mysql = DAO_MySQL(args.mysql_host, args.mysql_user, args.mysql_password, args.mysql_database)
-    _, err = dao_mysql.connect()
-    if err:
-        logging.error("Failed to connect to MySQL database.")
-        sys.exit(1)
+    # Connect to the databases and initialize the DAOs
+    # Neo4j first because it is needed for the MySQL DAO to load connections from Neo4j into the temporary table
     dao_neo4j = DAO_Neo4j(args.neo4j_uri, args.neo4j_user, args.neo4j_password)
     _, err = dao_neo4j.connect()
     if err:
         logging.error("Failed to connect to Neo4j database.")
         sys.exit(1)
+
+    dao_mysql = DAO_MySQL(args.mysql_host, args.mysql_user, args.mysql_password, args.mysql_database, dao_neo4j=dao_neo4j)
+    _, err = dao_mysql.connect()
+    if err:
+        logging.error("Failed to connect to MySQL database.")
+        sys.exit(1)
+
+
     menu = Menu(dao_mysql=dao_mysql, dao_neo4j=dao_neo4j)
     menu.run()
 
