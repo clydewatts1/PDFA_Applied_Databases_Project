@@ -478,6 +478,173 @@ def test_add_new_attendee_negative_existing(attendeeID:str,name:str,DOB:str,gend
         print(f"❌ FAIL: An error occurred: {e}")
     finally:
         child.close(force=True)
+
+#----------------------------------------------------------------------------------------
+# Test Case: Add New Attendee - Negative Test - Invalid Gender
+#----------------------------------------------------------------------------------------
+
+
+
+def test_add_new_attendee_negative_existing(attendeeID:str,name:str,DOB:str,gender:str,companyID:str):
+    print("\n--- Running Test: Option 3 (Add New Attendee - Negative: Existing Attendee) ---")
+    
+    # Remember the -u flag to prevent Python buffering!
+    child = start_program()
+   
+    try:
+        # Wait for the main menu and select Option 3
+        validate_menu_top_level(child)
+        child.sendline('3')
+        print("✅ PASS: Selected Option 3.")
+        child.expect('Add New Attendee')
+        print("✅ PASS: Navigated to Add New Attendee menu.")
+        child.expect('----------------')
+        print("✅ PASS: Found dashed line.")
+        child.expect('Attendee ID :')
+        print("✅ PASS: Prompted for Attendee ID.")
+        child.sendline(str(attendeeID))
+        print(f"✅ PASS: Entered Attendee ID '{attendeeID}'.")
+        child.expect('Name : ')
+        print("✅ PASS: Prompted for Name.")
+        child.sendline(name)
+        print(f"✅ PASS: Entered Name '{name}'.")
+        child.expect('DOB : ')
+        print("✅ PASS: Prompted for DOB.")
+        child.sendline(DOB)
+        print(f"✅ PASS: Entered DOB '{DOB}'.")
+        child.expect('Gender : ')
+        print("✅ PASS: Prompted for Gender.")
+        child.sendline(gender)
+        print(f"✅ PASS: Entered Gender '{gender}'.")
+        child.expect('Company ID : ')
+        print("✅ PASS: Prompted for Company ID.")
+        child.sendline(companyID)
+        print(f"✅ PASS: Entered Company ID '{companyID}'.")
+        # * are part of the error message so need to escape them in the regex
+        child.expect(re.escape(f'*** ERROR *** Attendee ID: {attendeeID} already exists'))
+        print("✅ PASS: Detected existing attendee.")
+        validate_menu_top_level(child)
+        child.sendline('x')
+    except pexpect.TIMEOUT:
+        print("❌ FAIL: Timed out waiting for expected text.")
+        print(f"Output before timeout:\n{child.before}")
+    except Exception as e:
+        print(f"❌ FAIL: An error occurred: {e}")
+    finally:
+        child.close(force=True)
+#----------------------------------------------------------------------------------------
+# Test Cases: Menu 3 : Invalid Gender
+#----------------------------------------------------------------------------------------
+
+def test_add_new_attendee_negative_invalid_gender(attendeeID:str,name:str,DOB:str,gender:str,companyID:str):
+    print("\n--- Running Test: Option 3 (Add New Attendee - Negative: Invalid Gender) ---")
+    
+    # Remember the -u flag to prevent Python buffering!
+    child = start_program()
+   
+    try:
+        # check if test attendee gender is invalid before starting the test, if not print a warning that the test may not work as expected
+        if gender in ['Male','Female']:
+            print(f"⚠️ WARNING: The gender '{gender}' is valid. This test is intended for invalid genders.")
+        # Wait for the main menu and select Option 3
+        validate_menu_top_level(child)
+        child.sendline('3')
+        print("✅ PASS: Selected Option 3.")
+        child.expect('Add New Attendee')
+        print("✅ PASS: Navigated to Add New Attendee menu.")
+        child.expect('----------------')
+        print("✅ PASS: Found dashed line.")
+        child.expect('Attendee ID :')
+        print("✅ PASS: Prompted for Attendee ID.")
+        child.sendline(str(attendeeID))
+        print(f"✅ PASS: Entered Attendee ID '{attendeeID}'.")
+        child.expect('Name : ')
+        print("✅ PASS: Prompted for Name.")
+        child.sendline(name)
+        print(f"✅ PASS: Entered Name '{name}'.")
+        child.expect('DOB : ')
+        print("✅ PASS: Prompted for DOB.")
+        child.sendline(DOB)
+        print(f"✅ PASS: Entered DOB '{DOB}'.")
+        child.expect('Gender : ')
+        print("✅ PASS: Prompted for Gender.")
+        child.sendline(gender)
+        print(f"✅ PASS: Entered Gender '{gender}'.")
+        child.expect('Company ID : ')
+        print("✅ PASS: Prompted for Company ID.")
+        child.sendline(companyID)
+        print(f"✅ PASS: Entered Company ID '{companyID}'.")
+        # * are part of the error message so need to escape them in the regex
+        child.expect(re.escape(f'*** ERROR *** Gender must be Male/Female'))
+        print("✅ PASS: Detected invalid gender.")
+        validate_menu_top_level(child)
+        child.sendline('x')
+    except pexpect.TIMEOUT:
+        print("❌ FAIL: Timed out waiting for expected text.")
+        print(f"Output before timeout:\n{child.before}")
+    except Exception as e:
+        print(f"❌ FAIL: An error occurred: {e}")
+    finally:
+        child.close(force=True)
+
+#----------------------------------------------------------------------------------------
+# Test Cases: Menu 3 : Invalid Company ID
+#----------------------------------------------------------------------------------------
+
+def test_add_new_attendee_negative_invalid_company_id(attendeeID:str,name:str,DOB:str,gender:str,companyID:str):
+    print("\n--- Running Test: Option 3 (Add New Attendee - Negative: Invalid Company ID) ---")
+    
+    # Remember the -u flag to prevent Python buffering!
+    child = start_program()
+   
+    try:
+        # check if test attendee company ID is invalid before starting the test, if not print a warning that the test may not work as expected
+        if companyID.isdigit():
+            print(f"⚠️ WARNING: The company ID '{companyID}' is valid. This test is intended for invalid company IDs.")
+        # Wait for the main menu and select Option 3
+        validate_menu_top_level(child)
+        child.sendline('3')
+        print("✅ PASS: Selected Option 3.")
+        child.expect('Add New Attendee')
+        print("✅ PASS: Navigated to Add New Attendee menu.")
+        child.expect('----------------')
+        print("✅ PASS: Found dashed line.")
+        child.expect('Attendee ID :')
+        print("✅ PASS: Prompted for Attendee ID.")
+        child.sendline(str(attendeeID))
+        print(f"✅ PASS: Entered Attendee ID '{attendeeID}'.")
+        child.expect('Name : ')
+        print("✅ PASS: Prompted for Name.")
+        child.sendline(name)
+        print(f"✅ PASS: Entered Name '{name}'.")
+        child.expect('DOB : ')
+        print("✅ PASS: Prompted for DOB.")
+        child.sendline(DOB)
+        print(f"✅ PASS: Entered DOB '{DOB}'.")
+        child.expect('Gender : ')
+        print("✅ PASS: Prompted for Gender.")
+        child.sendline(gender)
+        print(f"✅ PASS: Entered Gender '{gender}'.")
+        child.expect('Company ID : ')
+        print("✅ PASS: Prompted for Company ID.")
+        child.sendline(companyID)
+        print(f"✅ PASS: Entered Company ID '{companyID}'.")
+        # * are part of the error message so need to escape them in the regex
+        child.expect(re.escape(f'*** ERROR *** Company ID: {companyID} does not exist'))
+        print("✅ PASS: Detected invalid company ID.")
+        validate_menu_top_level(child)
+        child.sendline('x')
+    except pexpect.TIMEOUT:
+        print("❌ FAIL: Timed out waiting for expected text.")
+        print(f"Output before timeout:\n{child.before}")
+    except Exception as e:
+        print(f"❌ FAIL: An error occurred: {e}")
+    finally:
+        child.close(force=True)
+# TODO Check Bad Attendee ID abf
+# TODO Check Bad DOB 
+# TODO Check Inserted Attendee by fetching
+# TODO Check Delete Attendee and check deleted by fetching
 #----------------------------------------------------------------------------------------
 # MAIN
 #----------------------------------------------------------------------------------------
@@ -506,10 +673,14 @@ if __name__ == "__main__":
     #test_view_attendees_by_company_no_attendees()
     #print("\n" + "="*50 + "\n")
     #test_add_new_attendee_positive(attendeeID=121,name='Joe Kelly',DOB='1970-02-18',gender='Male',companyID='2')
+    #print("\n" + "="*50 + "\n")
+    #test_add_new_attendee_negative_existing(attendeeID=121,name='Joe Kelly',DOB='1970-02-18',gender='Male',companyID='2')
+    #print("\n" + "="*50 + "\n")
+    #test_add_new_attendee_negative_existing(attendeeID=121,name='Joe Bon',DOB='1970-12-18',gender='Male',companyID='2')
+    #print("\n" + "="*50 + "\n")
+    #test_add_new_attendee_negative_existing(attendeeID=101,name='Joe Kelly',DOB='1970-12-18',gender='Male',companyID='2')
+    #print("\n" + "="*50 + "\n")
+    test_add_new_attendee_negative_invalid_gender(attendeeID=122,name='Jane Doe',DOB='1980-05-10',gender='Unknown',companyID='2')
     print("\n" + "="*50 + "\n")
-    test_add_new_attendee_negative_existing(attendeeID=121,name='Joe Kelly',DOB='1970-02-18',gender='Male',companyID='2')
-    print("\n" + "="*50 + "\n")
-    test_add_new_attendee_negative_existing(attendeeID=121,name='Joe Bon',DOB='1970-12-18',gender='Male',companyID='2')
-    print("\n" + "="*50 + "\n")
-    test_add_new_attendee_negative_existing(attendeeID=101,name='Joe Kelly',DOB='1970-12-18',gender='Male',companyID='2')
-    
+    #test_add_new_attendee_negative_invalid_company_id(attendeeID=122,name='Jane Doe',DOB='1980-05-10',gender='Female',companyID='999')
+    #print("\n" + "="*50 + "\n")
