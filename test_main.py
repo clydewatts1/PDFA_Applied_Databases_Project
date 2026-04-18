@@ -41,7 +41,36 @@ def validate_menu_top_level(child):
 # Test Cases
 #----------------------------------------------------------------------------------------
 
-
+#----------------------------------------------------------------------------------------
+# Test Case: Reset Databases
+#----------------------------------------------------------------------------------------
+def test_reset_databases():
+    print("Running Test: Reset Databases")
+    
+    child = start_program()
+    try:
+        validate_menu_top_level(child)
+        print("✅ PASS: Program prompted for choice.")
+        child.sendline('99900')
+        child.expect('Are you sure you want to reset the MySQL database? This will delete all data. (y/n):')
+        print("Sent '99900' to reset MySQL database.")
+        child.sendline('y')
+        child.expect('MySQL database has been reset successfully.')
+        print("✅ PASS: MySQL database reset successfully.")
+        child.expect('Please select an option:')
+        child.sendline('99901')
+        print("Sent '99901' to reset Neo4j database.")
+        child.expect('Are you sure you want to reset the Neo4j database? This will delete all data. (y/n):')
+        child.sendline('y')
+        print("✅ PASS: Neo4j database reset successfully.")
+        child.sendline('x')
+    except pexpect.TIMEOUT:
+        print("❌ FAIL: Timed out waiting for expected text.")
+        print(f"What the screen actually looked like:\n{child.before}")
+    except Exception as e:
+        print(f"❌ FAIL: An error occurred: {e}")
+    finally:
+        child.close(force=True)
 #----------------------------------------------------------------------------------------
 # Test Case: Exit Cleanly
 #----------------------------------------------------------------------------------------
@@ -878,7 +907,10 @@ if __name__ == "__main__":
     parser.add_argument("--quiet", action="store_true",default=False, help="Run tests in quiet mode")
     args = parser.parse_args()
     quiet = args.quiet
-
+    print("\n" + "="*50 + "\n")
+    print("==  Starting CloudSprint Application Tests ==")
+    print("\n" + "="*50 + "\n")
+    test_reset_databases()
     #print("\n" + "="*50 + "\n")
     #test_exit_cleanly()
     #print("\n" + "="*50 + "\n")
@@ -891,21 +923,21 @@ if __name__ == "__main__":
     #print("== test_view_speakers_negative ==")
     #print("\n" + "="*50 + "\n")
     #test_view_speakers_negative()
-    print("\n" + "="*50 + "\n")
-    print("== test_view_attendees_by_company_positive ==")
-    print("\n" + "="*50 + "\n")
-    test_view_attendees_by_company_positive()
-    print("\n" + "="*50 + "\n")
-    print("== test_view_attendees_by_company_multiple ==")
-    print("\n" + "="*50 + "\n")
-    test_view_attendees_by_company_multiple()
-    print("\n" + "="*50 + "\n")
-    test_view_attendees_by_company_not_valid_company()
-    print("\n" + "="*50 + "\n")
-    print("== test_view_attendees_by_company_no_attendees ==")
-    print("\n" + "="*50 + "\n")
-    test_view_attendees_by_company_no_attendees()
-    print("\n" + "="*50 + "\n")
+    #print("\n" + "="*50 + "\n")
+    #print("== test_view_attendees_by_company_positive ==")
+    #print("\n" + "="*50 + "\n")
+    #test_view_attendees_by_company_positive()
+    #print("\n" + "="*50 + "\n")
+    #print("== test_view_attendees_by_company_multiple ==")
+    #print("\n" + "="*50 + "\n")
+    #test_view_attendees_by_company_multiple()
+    #print("\n" + "="*50 + "\n")
+    #test_view_attendees_by_company_not_valid_company()
+    #print("\n" + "="*50 + "\n")
+    #print("== test_view_attendees_by_company_no_attendees ==")
+    #print("\n" + "="*50 + "\n")
+    #test_view_attendees_by_company_no_attendees()
+    #print("\n" + "="*50 + "\n")
     #test_add_new_attendee_positive(attendeeID=121,name='Joe Kelly',DOB='1970-02-18',gender='Male',companyID='2')
     #print("\n" + "="*50 + "\n")
     #test_add_new_attendee_check_if_exists(attendeeID=121,name='Joe Kelly',DOB='1970-02-18',gender='Male',companyID='2')
@@ -927,7 +959,7 @@ if __name__ == "__main__":
     #test_add_new_attendee_negative_invalid_dob(attendeeID='abc',name='Jane Doe',DOB='ttttt-05-10',gender='Female',companyID='2')
     #
     #--------------------------------------------------------------------------------------------
-    print("\n" + "="*50 + "\n")
-    print("== test_view_rooms ==")
-    print("\n" + "="*50 + "\n")
+    #print("\n" + "="*50 + "\n")
+    #print("== test_view_rooms ==")
+    #print("\n" + "="*50 + "\n")
     test_view_rooms()

@@ -1,7 +1,7 @@
 // ConferenceConnect Neo4j database
 // Create a database called attendeeNetwork and run the following statements in that database.
 
-CREATE DATABASE IF NOT EXISTS attendeeNetwork;
+CREATE DATABASE attendeeNetwork IF NOT EXISTS;
 MATCH (n) DETACH DELETE n;
 
 CREATE

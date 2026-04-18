@@ -24,6 +24,7 @@ import subprocess
 import sys
 import argparse
 
+
 # Global 
 mysql_reset_file = "appdbproj.sql"
 neo4j_reset_file = "dev_neo4j.cypher"
@@ -94,17 +95,83 @@ class DAO_Neo4j:
     def reset_database(self):
         """Reset the Neo4j database using the provided Cypher file."""
         try:
-            print(f"Resetting Neo4j database using script: {neo4j_reset_file}")
-            with open(neo4j_reset_file, 'r') as file:
-                cypher_script = file.read()
-            with self.driver.session() as session:
-                session.run(cypher_script)
+
+            logging.info(f"Resetting Neo4j database using script: {neo4j_reset_file}")
+            # File load did not work as expected, so added the queries directly into the code instead
+            # TODO - add the queries to a separate file and load them into the code, and ensure that the file is properly formatted for loading into Neo4j
+            self.delete_all_nodes_and_relationships()
             logging.info("Neo4j database reset successfully.")
+            self.merge_attendee(101)
+            logging.info("Attendee 101 merged successfully.")
+            self.merge_attendee(102)
+            logging.info("Attendee 102 merged successfully.")
+            self.merge_attendee(103)
+            logging.info("Attendee 103 merged successfully.")
+            self.merge_attendee(104)
+            logging.info("Attendee 104 merged successfully.")
+            self.merge_attendee(105)
+            logging.info("Attendee 105 merged successfully.")
+            self.merge_attendee(106)
+            logging.info("Attendee 106 merged successfully.")
+            self.merge_attendee(107)
+            logging.info("Attendee 107 merged successfully.")
+            self.merge_attendee(108)
+            logging.info("Attendee 108 merged successfully.")
+            self.merge_attendee(109)
+            logging.info("Attendee 109 merged successfully.")
+            self.merge_attendee(110)
+            logging.info("Attendee 110 merged successfully.")
+            self.merge_attendee(111)
+            logging.info("Attendee 111 merged successfully.")
+            self.merge_attendee(113)
+            logging.info("Attendee 113 merged successfully.")
+            self.merge_attendee(114)
+            logging.info("Attendee 114 merged successfully.")
+            self.merge_attendee(115)
+            logging.info("Attendee 115 merged successfully.")
+            self.merge_attendee(116)
+            logging.info("Attendee 116 merged successfully.")
+            self.merge_attendee(117)
+            logging.info("Attendee 117 merged successfully.")
+            self.merge_attendee(118)
+            logging.info("Attendee 118 merged successfully.")
+            self.merge_attendee(120)
+            logging.info("Attendee 120 merged successfully.")
+            self.merge_connection(101, 109)
+            logging.info("Connection between 101 and 109 merged successfully.")
+            self.merge_connection(101, 107)
+            logging.info("Connection between 101 and 107 merged successfully.")
+            self.merge_connection(102, 110)
+            logging.info("Connection between 102 and 110 merged successfully.")
+            self.merge_connection(103, 111)
+            logging.info("Connection between 103 and 111 merged successfully.")
+            self.merge_connection(104, 120)
+            logging.info("Connection between 104 and 120 merged successfully.")
+            self.merge_connection(105, 113)
+            logging.info("Connection between 105 and 113 merged successfully.")
+            self.merge_connection(106, 114)
+            logging.info("Connection between 106 and 114 merged successfully.")
+            self.merge_connection(107, 115)
+            logging.info("Connection between 107 and 115 merged successfully.")
+            self.merge_connection(108, 116)
+            logging.info("Connection between 108 and 116 merged successfully.")
+            self.merge_connection(111, 101)
+            logging.info("Connection between 111 and 101 merged successfully.")
+            self.merge_connection(106, 103)
+            logging.info("Connection between 106 and 103 merged successfully.")
+            self.merge_connection(120, 103)
+            logging.info("Connection between 120 and 103 merged successfully.")
         except neo4j.exceptions.Neo4jError as err:
             logging.error(f"Error resetting Neo4j database: {err}")
             return None, err
         return None, None
-        
+#------------------------------------------------------------------------------
+# Function: delete_all_nodes_and_relationships
+# ------------------------------------------------------------------------------
+    def delete_all_nodes_and_relationships(self):
+        """Delete all nodes and relationships from the Neo4j database."""
+        query = "MATCH (n) DETACH DELETE n"
+        return self.execute_query(query, None)       
 #------------------------------------------------------------------------------
 # Function: execute_query
 #------------------------------------------------------------------------------
@@ -142,10 +209,10 @@ class DAO_Neo4j:
 #------------------------------------------------------------------------------
 # Function: merge_attendee
 #------------------------------------------------------------------------------
-    def merge_attendee(self, attendeeID, attendeeName):
+    def merge_attendee(self, attendeeID):
         """Merge an attendee node in the Neo4j database."""
-        query = "MERGE (a:Attendee {AttendeeID: $attendeeID}) ON CREATE SET a.AttendeeName = $attendeeName RETURN a"
-        parameters = {"attendeeID": attendeeID, "attendeeName": attendeeName}
+        query = "MERGE (a:Attendee {AttendeeID: $attendeeID}) RETURN a"
+        parameters = {"attendeeID": attendeeID}
         return self.execute_query(query, parameters)
 #-------------------------------------------------------------------------------
 # Function: get_all_attendees
@@ -161,7 +228,8 @@ class DAO_Neo4j:
     def merge_connection(self, attendeeID1, attendeeID2):
         """Merge a connection between two attendees in the Neo4j database."""
         query = """
-        MATCH (a1:Attendee {AttendeeID: $attendeeID1}), (a2:Attendee {AttendeeID: $attendeeID2})
+        MATCH (a1:Attendee {AttendeeID: $attendeeID1})
+        MATCH (a2:Attendee {AttendeeID: $attendeeID2})
         MERGE (a1)-[:CONNECTED_TO]-(a2)
         RETURN a1, a2
         """
@@ -264,6 +332,19 @@ class DAO_MySQL:
         except mysql.Error as err:
             logging.error(f"Error connecting to MySQL: {err}")
             return None, err
+        # create a temporary table to hold the connections between attendees, this will be used to load the connections from neo4j into mysql and then display them in the menu
+        _,err = self.create_relationship_attendees_temporary_table()
+        if err:
+            logging.error("Error creating relationship attendees temporary table: %s", err)
+            print(f"*** ERROR *** Creating relationship attendees temporary table: ({err})")
+            return None, err
+        # do a delete all connections to ensure the temporary table is empty when we start the application, and then we will load the connections from neo4j into the temporary table when we need to display them in the menu
+        _,err = self.delete_all_attendee_connections()
+        if err:
+            logging.error("Error deleting all attendee connections: %s", err)
+            print(f"*** ERROR *** Deleting all attendee connections: ({err})")
+            return None, err
+        
         return self.connection, None
     
 #------------------------------------------------------------------------------
@@ -1266,7 +1347,7 @@ def main():
     parser.add_argument("--neo4j-uri", required=False,default="bolt://localhost:7687", help="Neo4j URI")
     parser.add_argument("--neo4j-user", required=False,default="neo4j", help="Neo4j user")
     parser.add_argument("--neo4j-password", required=False,default="neo4jneo4j", help="Neo4j password")
-    parser.add_argument("--neo4j-database", required=False,default="attendeenetwork", help="Neo4j database")
+    parser.add_argument("--neo4j-database", required=False,default="attendeeNetwork", help="Neo4j database")
     parser.add_argument("--log-level", required=False,default="INFO", help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
     parser.add_argument("--log-file", required=False,default="app.log", help="Log file path")
     # debug level logging for testing
