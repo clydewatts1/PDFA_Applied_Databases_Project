@@ -1,26 +1,46 @@
 #! /usr/bin/env python3
+# source venv_wsl/bin/activate
 #------------------------------------------------------------------------------
 # File: main.py
 # Description: Main application file for the Conference Management System.
 # This file contains the implementation of the Data Access Objects (DAOs) for both Neo4j and MySQL databases
 # as well as the Menu class to interact
 #------------------------------------------------------------------------------
+
+#------------------------------------------------------------------------------
+# MYSQL
+# -----
+# Autocommit mode is enabled : https://dev.mysql.com/doc/connector-python/en/connector-python-api-mysqlconnection-autocommit.html
+#     This means that each query is committed immediately after it is executed, so there is no need
+#     Author - This equivalent to BTET mode in Teradata 
+# Cursor class is set to DictCursor : https://dev.mysql.com/doc/connector-python/en/connector-python-api-mysqlcursor-dictcursor.html
+#     This means that the results of queries will be returned as dictionaries
+#     Author - as per lecture notes  
+# NEO4J
+# TBD
+#------------------------------------------------------------------------------
 import logging
 import subprocess
 import sys
 import argparse
 
+# Global 
+mysql_reset_file = "appdbproj.sql"
+neo4j_reset_file = "dev_neo4j.cypher"
+
 # TODO 
 # 1. When adding attendee ensure that it is added in neo4j as well as mysql, and that the connection is created in neo4j for the new attendee and any existing attendees that are connected to it in mysql
 # 2. When deleting attendee ensure that it is deleted in neo4j as well as mysql, and that any connections in neo4j are also deleted for the attendee
-
+# 3. Improve error handling and logging throughout the code, especially in the DAO classes and menu functions
+# 4. Add more detailed logging for debugging purposes, especially in the DAO classes and menu
 # Install the mysql-connector-python package if it's not already installed
 try:
-    import mysql.connector as mysql
+    #import mysql.connector as mysql
+    import pymysql as mysql
 except ImportError:
     # Try to install the mysql-connector-python package if it's not already installed
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "mysql-connector-python"])
-    import mysql.connector as mysql
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "pymysql"])
+    import pymysql as mysql
 # Install NEO4J Python driver if it's not already installed
 try:
     import neo4j as neo4j
@@ -39,10 +59,11 @@ class DAO_Neo4j:
 #------------------------------------------------------------------------------
 # Function: __init__
 #------------------------------------------------------------------------------
-    def __init__(self, uri, user, password):
+    def __init__(self, uri, user, password, database="attendeenetwork"):
         self.uri = uri
         self.user = user
         self.password = password
+        self.database = database
         self.driver = None
 
 #------------------------------------------------------------------------------
@@ -58,13 +79,32 @@ class DAO_Neo4j:
     def connect(self):
         """Establish a connection to the Neo4j database."""
         try:
-            self.driver = neo4j.GraphDatabase.driver(self.uri, auth=(self.user, self.password))
-            logging.info("Successfully connected to Neo4j database.")
+            self.driver = neo4j.GraphDatabase.driver(uri = self.uri, 
+                                                     auth = (self.user, 
+                                                           self.password), 
+                                                    database = self.database)
+            logging.info(f"Successfully connected to Neo4j database: {self.database}.")
         except neo4j.exceptions.Neo4jError as err:
             logging.error(f"Error connecting to Neo4j: {err}")
             return None, err
         return self.driver, None
-    
+#------------------------------------------------------------------------------
+# Function: reset_database
+# ------------------------------------------------------------------------------
+    def reset_database(self):
+        """Reset the Neo4j database using the provided Cypher file."""
+        try:
+            print(f"Resetting Neo4j database using script: {neo4j_reset_file}")
+            with open(neo4j_reset_file, 'r') as file:
+                cypher_script = file.read()
+            with self.driver.session() as session:
+                session.run(cypher_script)
+            logging.info("Neo4j database reset successfully.")
+        except neo4j.exceptions.Neo4jError as err:
+            logging.error(f"Error resetting Neo4j database: {err}")
+            return None, err
+        return None, None
+        
 #------------------------------------------------------------------------------
 # Function: execute_query
 #------------------------------------------------------------------------------
@@ -107,6 +147,13 @@ class DAO_Neo4j:
         query = "MERGE (a:Attendee {AttendeeID: $attendeeID}) ON CREATE SET a.AttendeeName = $attendeeName RETURN a"
         parameters = {"attendeeID": attendeeID, "attendeeName": attendeeName}
         return self.execute_query(query, parameters)
+#-------------------------------------------------------------------------------
+# Function: get_all_attendees
+#-------------------------------------------------------------------------------
+    def get_all_attendees(self):
+        """Get all attendees from the Neo4j database."""
+        query = "MATCH (a:Attendee) RETURN a.AttendeeID"
+        return self.execute_query(query, None)
 
 #------------------------------------------------------------------------------
 # Function: merge_connection
@@ -146,14 +193,28 @@ class DAO_Neo4j:
 #------------------------------------------------------------------------------
     def get_connected_attendees(self, attendeeID):
         """Get all attendees connected to a specific attendee."""
-        query = """
-        MATCH (a:Attendee {AttendeeID: $attendeeID})-[:CONNECTED_TO]-(connected:Attendee)
-        RETURN connected.AttendeeID AS AttendeeID, connected.AttendeeName AS AttendeeName
+        query = f"""
+        MATCH (a:Attendee {{AttendeeID: {attendeeID}}})-[:CONNECTED_TO]-(connected:Attendee)
+        RETURN distinct connected.AttendeeID
         """
-        parameters = {"attendeeID": attendeeID}
+        parameters = {}
+        return self.execute_query(query, parameters)
+    
+  
+#------------------------------------------------------------------------------
+# Function: check_connection_exists
+#------------------------------------------------------------------------------
+    def check_connection_exists(self, attendeeID1, attendeeID2):
+        """Check if a connection exists between two attendees."""
+        query = f"""
+        MATCH (a1:Attendee {{AttendeeID: {attendeeID1}}})-[:CONNECTED_TO]-(a2:Attendee {{AttendeeID: {attendeeID2}}})
+        RETURN a1, a2
+        """
+        parameters = {}
         return self.execute_query(query, parameters)
     
 
+  
     
 
 #------------------------------------------------------------------------------------------------------
@@ -193,7 +254,9 @@ class DAO_MySQL:
                 host=self.host,
                 user=self.user,
                 password=self.password,
-                database=self.database
+                database=self.database,
+                cursorclass=mysql.cursors.DictCursor
+                #cursorclass=mysql.cursor.DictCursor  # Use DictCursor to get results as dictionaries
             )
             # Got caught out by the autocommit mode when testing the connection to neo4j and then back to mysql, so added this line to ensure autocommit is enabled for all queries
             self.connection.autocommit = True  # Enable autocommit mode
@@ -243,6 +306,30 @@ class DAO_MySQL:
     #companyName VARCHAR(100) NOT NULL,
     #industry VARCHAR(60) NOT NULL
     #);
+#------------------------------------------------------------------------------
+# Function: reset_database
+#------------------------------------------------------------------------------
+    def reset_database(self):
+        """Reset the MySQL database using the provided SQL file."""
+        try:
+            print(f"Resetting MySQL database using script: {mysql_reset_file}")
+            with open(mysql_reset_file, 'r') as file:
+                sql_script = file.read()
+            cursor = self.connection.cursor()
+            # split on semicolon and execute each statement separately to avoid issues with multiple statements in one execute call
+            for statement in sql_script.split(';'):
+                print("--------------------------------------------------")
+                print(f"Executing SQL statement: {statement}")
+                print("--------------------------------------------------")
+                if statement.strip():
+                    cursor.execute(statement)
+            # Using autocommit mode, so no need to commit after executing the script
+            #self.connection.commit()
+            logging.info("MySQL database reset successfully.")
+        except mysql.Error as err:
+            logging.error(f"Error resetting MySQL database: {err}")
+            return None, err
+        return None, None
 
 #------------------------------------------------------------------------------
 # Function: create_relationship_attendees_temporary_table
@@ -251,45 +338,44 @@ class DAO_MySQL:
         """Create a temporary table to hold attendee connections."""
         query = """
         CREATE TEMPORARY TABLE IF NOT EXISTS attendee_connections (
-            attendeeID1 INT,
-            attendeeID2 INT,
-            PRIMARY KEY (attendeeID1, attendeeID2)
+            connectedAttendeeId INT,
+            PRIMARY KEY (connectedAttendeeId)
         )
         """
-        return self.execute_query(query)
+        return self.execute_query(query, None)
     
 #------------------------------------------------------------------------------
 # Function: add_attendee_connection
 #------------------------------------------------------------------------------
-    def add_attendee_connection(self, attendeeID1, attendeeID2):
+    def add_attendee_connection(self, attendeeID1):
         """Add a connection between two attendees in the temporary table."""
         # This database shows “connections” between attendees. Any attendee (that is in the MySQL database) can have a CONNECTED_TO relationship with any other attendee.
         # The direction of the CONNECTED_TO relationship is unimportant.
         # Check if the connection already exists in either direction
+        logging.info(f"Adding connection for AttendeeID: {attendeeID1}")
         check_query = """SELECT 1 FROM attendee_connections 
-                         WHERE (attendeeID1 = %s AND attendeeID2 = %s)
-                            OR (attendeeID1 = %s AND attendeeID2 = %s)"""
+                         WHERE (connectedAttendeeId = %s)"""
         
-        check_values = (attendeeID1, attendeeID2, attendeeID2, attendeeID1)
+        check_values = (attendeeID1,)
         existing_connection, err = self.execute_query(check_query, check_values)
         if existing_connection:
             logging.info("Connection already exists.")
             return None, "Connection already exists"
         # If the connection does not exist, insert it into the table    
-        query = "INSERT INTO attendee_connections (attendeeID1, attendeeID2) VALUES (%s, %s)"
-        values = (attendeeID1, attendeeID2)
+        query = "INSERT INTO attendee_connections (connectedAttendeeId) VALUES (%s)"
+        values = (attendeeID1,)
         self.execute_query(query, values)
+        logging.info(f"Connection added for AttendeeID: {attendeeID1}")
         return None, None
     
 #------------------------------------------------------------------------------
 # Function: delete_attendee_connection
 #------------------------------------------------------------------------------
-    def delete_attendee_connection(self, attendeeID1, attendeeID2):
+    def delete_attendee_connection(self, connectedAttendeeId):
         """Delete a connection between two attendees from the temporary table."""
         query = """DELETE FROM attendee_connections 
-                   WHERE (attendeeID1 = %s AND attendeeID2 = %s)
-                      OR (attendeeID1 = %s AND attendeeID2 = %s)"""
-        values = (attendeeID1, attendeeID2, attendeeID2, attendeeID1)
+                   WHERE (connectedAttendeeId = %s )"""
+        values = (connectedAttendeeId,)
         self.execute_query(query, values)
         return None, None
     
@@ -301,15 +387,28 @@ class DAO_MySQL:
         query = "DELETE FROM attendee_connections"
         self.execute_query(query)
         return None, None
+#-------------------------------------------------------------------------------
+# Function: get_all_attendee_connections
+#------------------------------------------------------------------------------
+    def get_all_attendee_connections(self):
+        """Get all connections from the temporary table."""
+        query = "SELECT connectedAttendeeId FROM attendee_connections"
+        return self.execute_query(query, None)
 
 #------------------------------------------------------------------------------
 # Function: get_connection_from_neo4j
 #------------------------------------------------------------------------------
     def get_connection_from_neo4j(self, attendeeID):
         """Get all attendees connected to a specific attendee from Neo4j."""
+
         if not self.dao_neo4j:
             logging.error("Neo4j DAO is not initialized.")
             return None, "No Neo4j DAO"
+        _, err = self.create_relationship_attendees_temporary_table()
+        if err:
+            logging.error("Error creating relationship attendees temporary table: %s", err)
+            print(f"*** ERROR *** Creating relationship attendees temporary table: ({err})")
+            return None, err
         # Get connected attendees from Neo4j and return the results
         results, err = self.dao_neo4j.get_connected_attendees(attendeeID)
         if err:
@@ -318,8 +417,10 @@ class DAO_MySQL:
         # now populate the temporary table with the results
         self.delete_all_attendee_connections()
         for record in results:
-            connectedAttendeeID = record["AttendeeID"]
-            self.add_attendee_connection(attendeeID, connectedAttendeeID)
+            connectedAttendeeID = record['connected.AttendeeID']
+            logging.info(f"Connected AttendeeID: {connectedAttendeeID} for AttendeeID: {attendeeID}")
+            self.add_attendee_connection(connectedAttendeeID)
+        return results, None
 
 
 #------------------------------------------------------------------------------
@@ -585,6 +686,7 @@ class DAO_MySQL:
         # Add % wildcards to the speakerName for partial matching
         # Select speakerName , sessionTitle and name of the room from session table where speakerName matches the input
         # Order the results by speakerName, sessionTitle and roomName so is consistent and easy to read
+        like_pattern = f"%{speakerName}%"
         query = """SELECT speakerName,
                   sessionTitle,
                   R.roomName
@@ -592,7 +694,7 @@ class DAO_MySQL:
            INNER JOIN room AS R ON SES.roomID = R.roomID
            WHERE speakerName LIKE %s
            ORDER BY speakerName, sessionTitle, roomName"""
-        values = (f"%{speakerName}%",)
+        values = (like_pattern,)
         return self.execute_query(query, values)
     
 #------------------------------------------------------------------------------
@@ -614,8 +716,8 @@ class DAO_MySQL:
             print(f"No sessions found for speaker: {speakerName}")
             return
         # print the results in a readable format
-        for speaker, session, room in results:
-            print(f"{speaker} | {session} | {room}")
+        for row in results:
+            print(f"{row['speakerName']} | {row['sessionTitle']} | {row['roomName']}")
     
     # Report attendees by company
     # Input: company id
@@ -652,6 +754,15 @@ class DAO_MySQL:
         return self.execute_query(query, values)
 
 #------------------------------------------------------------------------------
+# Function: report_connected_attendees
+#------------------------------------------------------------------------------
+    def report_connected_attendees(self, attendeeID):
+        """Report attendees connected to a specific attendee."""
+        query = f"""SELECT attendeeID, attendeeName FROM attendee WHERE attendeeID IN
+            (SELECT connectedAttendeeId from attendee_connections WHERE connectedAttendeeId <> %s) ORDER BY attendeeName"""
+        return self.execute_query(query, (attendeeID,))
+
+#------------------------------------------------------------------------------
 # Function: print_attendees_report
 #------------------------------------------------------------------------------
     def print_attendees_report(self, companyID, companyName=""):
@@ -666,10 +777,11 @@ class DAO_MySQL:
             print(f"No attendees found for  {companyName}")
             return results, None
         print(f"{companyName}  Attendees")
-        for attendee, dob, session, speaker, room in results:
-            print(f"{attendee} | {dob} | {session} | {speaker} | {room}")
+        for row in results:
+            print(f"{row['attendeeName']} | {row['attendeeDOB']} | {row['sessionTitle']} | {row['speakerName']} | {row['roomName']}")
         return results, None
    # Add a new attendee 
+
 
 #------------------------------------------------------------------------------------------------------
 # Menu 
@@ -698,6 +810,7 @@ class Menu:
 
         self.dao_mysql = dao_mysql
         self.dao_neo4j = dao_neo4j
+        self.view_rooms=None
 
 #------------------------------------------------------------------------------
 # Function: display_menu
@@ -742,12 +855,19 @@ class Menu:
                 logging.info(f"No company found with ID: {companyID}")
                 print(f"Company with ID  {companyID} doesn't exist.")
                 continue
-            companyName = companyResults[0][1]  # Assuming the company name is in the second column
-            result,err =  self.dao_mysql.print_attendees_report(companyID, companyName)
-            print(result,len(result))
-            if err or result is  None or len(result) == 0:
+            companyName = companyResults[0]['companyName'] # Assuming the company name is in the 'companyName' column
+            report_attendees_by_company, err = self.dao_mysql.report_attendees_by_company(companyID)
+            if err:
+                logging.error("Failed to generate attendees report.")
+                return None, err
+            if report_attendees_by_company is None or len(report_attendees_by_company) == 0:
                 logging.info(f"No attendees found for company ID: {companyID}")
+                print(f"{companyName}  Attendees")
+                print(f"No attendees found for  {companyName}")
                 continue
+            print(f"{companyName}  Attendees")
+            for row in report_attendees_by_company:
+                print(f"{row['attendeeName']} | {row['attendeeDOB']} | {row['sessionTitle']} | {row['speakerName']} | {row['roomName']}")
             break
 
 #------------------------------------------------------------------------------
@@ -843,15 +963,15 @@ class Menu:
         attendeeGender = input("Gender : ")
         attendeeCompanyID = input("Company ID : ")
         # Check if attendee ID is a number
-        if not attendeeId.isdigit():
-            logging.error("Invalid input. Please enter a numeric attendee ID.")
-            print(f"*** ERROR *** Attendee ID: {attendeeId} is not a valid number")
-            return
+        #if not attendeeId.isdigit():
+        #    logging.error("Invalid input. Please enter a numeric attendee ID.")
+        #    print(f"*** ERROR *** Attendee ID: {attendeeId} is not a valid number")
+        #    return
         # see if attendee already exists
         existingAttendee, err = self.dao_mysql.read_attendee(attendeeId)
         if err:
             logging.error("Error checking if attendee exists: %s", err)
-            print(f"*** ERROR *** Error checking if attendee exists: {err}")
+            print(f'*** ERROR *** Error checking if attendee exists: ({err.args[0]}, "{err.args[1]}")')
             return
         if existingAttendee and len(existingAttendee) > 0:
             logging.info(f"Attendee with ID {attendeeId} already exists.")
@@ -871,7 +991,7 @@ class Menu:
         companyResults, err = self.dao_mysql.read_company(attendeeCompanyID)
         if err:
             logging.error("Error checking if company exists: %s", err)
-            print(f"*** ERROR *** Company ID: {attendeeCompanyID} - Error checking if company exists: {err}")
+            print(f'*** ERROR *** Company ID: {attendeeCompanyID} - Error checking if company exists: ({err.args[0]}, "{err.args[1]}")')
             return
         if not companyResults or len(companyResults) == 0:
             logging.info(f"No company found with ID: {attendeeCompanyID}")
@@ -881,11 +1001,189 @@ class Menu:
         _, err = self.dao_mysql.create_attendee(attendeeId, attendeeName, attendeeDOB, attendeeGender, attendeeCompanyID)
         if err:
             logging.error("Error creating new attendee: %s", err)
-            print(f"*** ERROR *** {err}")
+            print(f'*** ERROR *** ({err.args[0]}, "{err.args[1]}")')
             return
         logging.info(f"Attendee {attendeeName} created successfully with ID: {attendeeId}")
         print(f"Attendee successfully added")
         return
+    
+#------------------------------------------------------------------------------
+# menu_view_connected_attendees
+#------------------------------------------------------------------------------
+    def menu_view_connected_attendees(self):
+        """Menu option to view attendees connected to a specific attendee."""
+        
+        # get attendee from mysql to get name
+        while True:
+            attendeeId = input("Enter Attendee ID :")
+            # if it is non numeric then show error and ask again
+            # saves accessing the database if the input is invalid
+            if not attendeeId.isdigit():
+                logging.warning("Invalid input. Please enter a numeric attendee ID.")
+                print(f"*** ERROR *** Invalid attendee ID")
+                continue
+            attendeeResults, err = self.dao_mysql.read_attendee(attendeeId)
+            if err:
+                logging.error("Error checking if attendee exists: %s", err)
+                print(f"*** ERROR *** Invalid attendee ID")
+                # Better error but above is as per requirements
+                #print(f'*** ERROR *** Error checking if attendee exists: ({err.args[0]}, "{err.args[1]}")')
+                continue
+            if not attendeeResults or len(attendeeResults) == 0:
+                logging.info(f"No attendee found with ID: {attendeeId}")
+                print(f"*** ERROR *** Attendee does not exist")
+                # exit the loop and return to main menu
+                break
+            attendeeName = attendeeResults[0]['attendeeName']  # Assuming the attendee name is in the 'name' column
+            logging.info(f"Attendee found: {attendeeName} (ID: {attendeeId})")
+            print(f"Attendee Name: {attendeeName}")
+            # Create a temporary table in MySQL to hold the connected attendees for this attendee   
+            # Get connected attendees from Neo4j and populate the temporary table in MySQL
+            logging.info(f"Getting connected attendees for {attendeeName} (ID: {attendeeId}) from Neo4j and populating temporary table in MySQL")
+            logging.info("Creating relationship attendees temporary table in MySQL")
+
+            # Delete any existing connections for this attendee in the temporary table to avoid duplicates
+            logging.info("Deleting existing attendee connections in the temporary table")
+
+            _, err = self.dao_mysql.delete_all_attendee_connections()
+            if err:
+                logging.error("Error deleting existing attendee connections: %s", err)
+                print(f"*** ERROR *** Deleting existing attendee connections: ({err.args[0]}, \"{err.args[1]}\")")
+                break
+            logging.info("Getting connections from Neo4j and inserting into temporary table in MySQL")
+            results, err = self.dao_mysql.get_connection_from_neo4j(attendeeId)
+            if err:
+                logging.error("Error getting connections from Neo4j: %s", err)
+                print(f"*** ERROR *** Getting connections from Neo4j: ({err.args[0]}, \"{err.args[1]}\")")
+                break
+            print("Results: ", results)
+            report, err = self.dao_mysql.report_connected_attendees(attendeeId)
+            if err:
+                logging.error("Error generating connected attendees report: %s", err)
+                print(f"*** ERROR *** Generating connected attendees report: ({err.args[0]}, \"{err.args[1]}\")")
+                break
+            print(f"These attendees are connected:")
+            for row in report:
+                print(f"{row['attendeeID']} | {row['attendeeName']}")
+
+#------------------------------------------------------------------------------
+# Function: menu_add_attendee_connection
+#------------------------------------------------------------------------------
+    def menu_add_attendee_connection(self):
+        """Menu option to add a connection between two attendees."""
+        while True:
+            attendeeId1 = input("Enter Attendee ID 1 : ")
+            attendeeId2 = input("Enter Attendee ID 2 : ")
+            # Check if attendee IDs are numeric
+            if not attendeeId1.isdigit() or not attendeeId2.isdigit():
+                logging.error("Invalid input. Please enter numeric attendee IDs.")
+                print(f"*** ERROR *** Attendee IDs must be numbers")
+                continue
+            # Check if both attendees ID are the same
+            if attendeeId1 == attendeeId2:
+                logging.error("Invalid input. Attendee IDs cannot be the same.")
+                print(f"*** ERROR *** An attendee cannot connect to him/herself")
+                continue
+            ## Check if attendee ID 1 exists
+            attendeeResults1, err = self.dao_mysql.read_attendee(attendeeId1)
+            if err:
+                logging.error("Error checking if attendee 1 exists: %s", err)
+                print(f"*** ERROR *** Attendee ID 1: {attendeeId1} - Error checking if attendee exists: ({err.args[0]}, \"{err.args[1]}\"))")
+                continue
+            if not attendeeResults1 or len(attendeeResults1) == 0:
+                logging.info(f"No attendee found with ID: {attendeeId1}")
+                print(f"*** ERROR *** One or both attendee ID's do not exist")
+                continue
+            # Check if attendee ID 2 exists
+            attendeeResults2, err = self.dao_mysql.read_attendee(attendeeId2)
+            if err:
+                logging.error("Error checking if attendee 2 exists: %s", err)
+                print(f"*** ERROR *** Attendee ID 2: {attendeeId2} - Error checking if attendee exists: ({err.args[0]}, \"{err.args[1]}\"))")
+                continue
+            if not attendeeResults2 or len(attendeeResults2) == 0:
+                logging.info(f"No attendee found with ID: {attendeeId2}")
+                print(f"*** ERROR *** One or both attendee ID's do not exist")
+                continue
+            # Check if the connection already exists in Neo4j
+            connectionResults, err = self.dao_neo4j.check_connection_exists(attendeeId1, attendeeId2)
+            if err:
+                logging.error("Error checking if connection exists in Neo4j: %s", err)
+                print(f"*** ERROR *** Checking connection in Neo4j: ({err.args[0]}, \"{err.args[1]}\"))")
+                continue
+            if connectionResults and len(connectionResults) > 0:
+                logging.info(f"Connection already exists between attendees {attendeeId1} and {attendeeId2}")
+                print(f"*** ERROR *** Connection already exists between attendees {attendeeId1} and {attendeeId2}")
+                continue
+            # Add the connection to Neo4j
+            _, err = self.dao_neo4j.merge_connection(attendeeId1, attendeeId2)
+            if err:
+                logging.error("Error adding connection to Neo4j: %s", err)
+                print(f"*** ERROR *** Adding connection to Neo4j: ({err.args[0]}, \"{err.args[1]}\"))")
+                break
+            logging.info(f"Connection successfully added between attendees {attendeeId1} and {attendeeId2}")
+            print(f"Attendee {attendeeId1} is now connected to {attendeeId2}")
+            break
+
+
+#------------------------------------------------------------------------------
+# Function: menu_view_rooms
+#------------------------------------------------------------------------------
+    def menu_view_rooms(self):
+        """Menu option to view all rooms."""
+        # Populate only once
+        if self.view_rooms is None:
+            self.view_rooms = []
+
+            results, err = self.dao_mysql.read_all_rooms()
+            if err:
+                logging.error("Error retrieving rooms: %s", err)
+                print(f"*** ERROR *** Retrieving rooms: ({err.args[0]}, \"{err.args[1]}\")")
+                return
+            if results is None or len(results) == 0:
+                logging.info("No rooms found in the database.")
+                print("No rooms found.")
+                return
+            self.view_rooms = results
+
+        print("RoomID    | RoomName | Capacity")
+        for row in self.view_rooms:
+            print(f"{row['roomID']} | {row['roomName']}  | {row['capacity']}")
+#------------------------------------------------------------------------------
+# Function: menu_reset_mysql_database
+#------------------------------------------------------------------------------
+    def menu_reset_mysql_database(self):
+        """Menu option to reset the MySQL database."""
+        confirm = input("Are you sure you want to reset the MySQL database? This will delete all data. (y/n): ")
+        if confirm.lower() == "y":
+            logging.info("Resetting the MySQL database...")
+            _, err = self.dao_mysql.reset_database()
+            if err:
+                logging.error("Error resetting the MySQL database: %s", err)
+                print(f"*** ERROR *** Resetting the MySQL database: ({err.args[0]}, \"{err.args[1]}\")")
+                return
+            logging.info("MySQL database reset successfully.")
+            print("MySQL database has been reset successfully.")
+        else:
+            logging.info("MySQL database reset cancelled.")
+            print("MySQL database reset cancelled.") 
+#------------------------------------------------------------------------------
+# Function: menu_reset_neo4j_database
+#------------------------------------------------------------------------------
+    def menu_reset_neo4j_database(self):
+        """Menu option to reset the Neo4j database."""
+        confirm = input("Are you sure you want to reset the Neo4j database? This will delete all data. (y/n): ")
+        if confirm.lower() == "y":
+            logging.info("Resetting the Neo4j database...")
+            _, err = self.dao_neo4j.reset_database()
+            if err:
+                logging.error("Error resetting the Neo4j database: %s", err)
+                print(f"*** ERROR *** Resetting the Neo4j database: ({err.args[0]}, \"{err.args[1]}\")")
+                return
+            logging.info("Neo4j database reset successfully.")
+            print("Neo4j database has been reset successfully.")
+        else:
+            logging.info("Neo4j database reset cancelled.")
+            print("Neo4j database reset cancelled.") 
 #------------------------------------------------------------------------------
 # Function: handle_selection
 #------------------------------------------------------------------------------
@@ -911,11 +1209,19 @@ class Menu:
                 return
             self.menu_add_attendee()
         elif selection == "4":
-            logging.info("You selected: View Connected Attendees")
+            if not self.dao_mysql or not self.dao_neo4j:
+                logging.error("MySQL or Neo4j DAO is not initialized.")
+                return
+            self.menu_view_connected_attendees()
         elif selection == "5":
             logging.info("You selected: Add Attendee Connection")
+            if not self.dao_mysql or not self.dao_neo4j:
+                logging.error("MySQL or Neo4j DAO is not initialized.")
+                return
+            self.menu_add_attendee_connection()
         elif selection == "6":
             logging.info("You selected: View Rooms")
+            self.menu_view_rooms()
         # Secret option to exit the application
         # Attendee Select , and Delete
         elif selection == "99001":
@@ -924,6 +1230,12 @@ class Menu:
         elif selection == "99002":
             logging.info("Delete Attendee with ID")
             Menu.menu_delete_attendee(self)
+        elif selection == "99900":
+            logging.info("Reset MySQL Database")
+            Menu.menu_reset_mysql_database(self)
+        elif selection == "99901":
+            logging.info("Reset Neo4j Database")
+            Menu.menu_reset_neo4j_database(self)
         elif selection.lower() == "x":
             logging.info("Exiting the application. Goodbye!")
             sys.exit(0)
@@ -953,7 +1265,10 @@ def main():
     parser.add_argument("--mysql-database", required=False,default='appdbproj', help="MySQL database")
     parser.add_argument("--neo4j-uri", required=False,default="bolt://localhost:7687", help="Neo4j URI")
     parser.add_argument("--neo4j-user", required=False,default="neo4j", help="Neo4j user")
-    parser.add_argument("--neo4j-password", required=False,default="neo4j", help="Neo4j password")
+    parser.add_argument("--neo4j-password", required=False,default="neo4jneo4j", help="Neo4j password")
+    parser.add_argument("--neo4j-database", required=False,default="attendeenetwork", help="Neo4j database")
+    parser.add_argument("--log-level", required=False,default="INFO", help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
+    parser.add_argument("--log-file", required=False,default="app.log", help="Log file path")
     # debug level logging for testing
     parser.add_argument("--debug", action="store_true", help="Enable debug level logging")
     args = parser.parse_args()
@@ -961,11 +1276,11 @@ def main():
 
     # Keep logging simple for now , log to file and optionally to console
     logging.basicConfig(
-            level=logging.DEBUG if args.debug else logging.INFO,
+            level=getattr(logging, args.log_level.upper(), logging.INFO),
             # add file and function name and line number to the log messages for better debugging
             format="%(asctime)s - %(levelname)s - %(filename)s - %(funcName)s - %(lineno)d - %(message)s",
             handlers=[
-                logging.FileHandler("app.log"),
+                logging.FileHandler(args.log_file),
                 logging.StreamHandler(sys.stdout)
             ]
         )
@@ -974,7 +1289,7 @@ def main():
 
     # Connect to the databases and initialize the DAOs
     # Neo4j first because it is needed for the MySQL DAO to load connections from Neo4j into the temporary table
-    dao_neo4j = DAO_Neo4j(args.neo4j_uri, args.neo4j_user, args.neo4j_password)
+    dao_neo4j = DAO_Neo4j(args.neo4j_uri, args.neo4j_user, args.neo4j_password,args.neo4j_database)
     _, err = dao_neo4j.connect()
     if err:
         logging.error("Failed to connect to Neo4j database.")

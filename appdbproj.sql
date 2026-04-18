@@ -1,13 +1,16 @@
 -- appdbproj MySQL database
-DROP DATABASE IF EXISTS appdbproj;
+DROP DATABASE IF EXISTS appdbproj
+;
 CREATE DATABASE appdbproj;
-USE appdbproj;
+USE appdbproj
+;
 
 CREATE TABLE company (
     companyID INT PRIMARY KEY,
     companyName VARCHAR(100) NOT NULL,
     industry VARCHAR(60) NOT NULL
-);
+)
+;
 
 CREATE TABLE attendee (
     attendeeID INT PRIMARY KEY,
@@ -16,13 +19,15 @@ CREATE TABLE attendee (
     attendeeGender ENUM('Male','Female') NOT NULL,
     attendeeCompanyID INT NOT NULL,
     FOREIGN KEY (attendeeCompanyID) REFERENCES company(companyID)
-);
+)
+;
 
 CREATE TABLE room (
     roomID INT PRIMARY KEY,
     roomName VARCHAR(80) NOT NULL,
     capacity INT NOT NULL
-);
+)
+;
 
 CREATE TABLE session (
     sessionID INT PRIMARY KEY,

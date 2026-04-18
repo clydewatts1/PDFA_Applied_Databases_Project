@@ -1,3 +1,5 @@
+from unicodedata import name
+
 import pexpect
 import re
 import sys
@@ -122,7 +124,7 @@ def test_view_speakers_positive():
         print(f"✅ PASS: Entered search query '{name}'.")
         
         # Verify the success header appears
-        child.expect('Session Details For : {}')
+        child.expect(f'Session Details For : {name}')
         print("✅ PASS: Found session details header.")
    # 2. Verify the dashed line (optional, but good for strict UI testing)
         child.expect('----------------------------------------')
@@ -641,10 +643,232 @@ def test_add_new_attendee_negative_invalid_company_id(attendeeID:str,name:str,DO
         print(f"❌ FAIL: An error occurred: {e}")
     finally:
         child.close(force=True)
-# TODO Check Bad Attendee ID abf
-# TODO Check Bad DOB 
+
+#----------------------------------------------------------------------------------------
+# Test Cases: Menu 3 : Invalid Attendee ID
+#----------------------------------------------------------------------------------------
+
+def test_add_new_attendee_negative_invalid_attendee_id(attendeeID:str,name:str,DOB:str,gender:str,companyID:str):
+    print("\n--- Running Test: Option 3 (Add New Attendee - Negative: Invalid Attendee ID) ---")
+    
+    # Remember the -u flag to prevent Python buffering!
+    child = start_program()
+   
+    try:
+        # check if test attendee company ID is invalid before starting the test, if not print a warning that the test may not work as expected
+        validate_menu_top_level(child)
+        child.sendline('3')
+        print("✅ PASS: Selected Option 3.")
+        child.expect('Add New Attendee')
+        print("✅ PASS: Navigated to Add New Attendee menu.")
+        child.expect('----------------')
+        print("✅ PASS: Found dashed line.")
+        child.expect('Attendee ID :')
+        print("✅ PASS: Prompted for Attendee ID.")
+        child.sendline(str(attendeeID))
+        print(f"✅ PASS: Entered Attendee ID '{attendeeID}'.")
+        child.expect('Name : ')
+        print("✅ PASS: Prompted for Name.")
+        child.sendline(name)
+        print(f"✅ PASS: Entered Name '{name}'.")
+        child.expect('DOB : ')
+        print("✅ PASS: Prompted for DOB.")
+        child.sendline(DOB)
+        print(f"✅ PASS: Entered DOB '{DOB}'.")
+        child.expect('Gender : ')
+        print("✅ PASS: Prompted for Gender.")
+        child.sendline(gender)
+        print(f"✅ PASS: Entered Gender '{gender}'.")
+        child.expect('Company ID : ')
+        print("✅ PASS: Prompted for Company ID.")
+        child.sendline(companyID)
+        print(f"✅ PASS: Entered Company ID '{companyID}'.")
+        # * are part of the error message so need to escape them in the regex
+        # Pick up database error
+        child.expect(re.escape(f'*** ERROR *** (1366'))        
+        print("✅ PASS: Detected invalid attendee ID.")
+        validate_menu_top_level(child)
+        child.sendline('x')
+    except pexpect.TIMEOUT:
+        print("❌ FAIL: Timed out waiting for expected text.")
+        print(f"Output before timeout:\n{child.before}")
+    except Exception as e:
+        print(f"❌ FAIL: An error occurred: {e}")
+    finally:
+        child.close(force=True)
+#----------------------------------------------------------------------------------------
+# Test Cases: Menu 3 : Invalid DOB
+#----------------------------------------------------------------------------------------
+
+def test_add_new_attendee_negative_invalid_dob(attendeeID:str,name:str,DOB:str,gender:str,companyID:str):
+    print("\n--- Running Test: Option 3 (Add New Attendee - Negative: Invalid DOB) ---")
+    
+    # Remember the -u flag to prevent Python buffering!
+    child = start_program()
+   
+    try:
+        # check if test attendee company ID is invalid before starting the test, if not print a warning that the test may not work as expected
+        validate_menu_top_level(child)
+        child.sendline('3')
+        print("✅ PASS: Selected Option 3.")
+        child.expect('Add New Attendee')
+        print("✅ PASS: Navigated to Add New Attendee menu.")
+        child.expect('----------------')
+        print("✅ PASS: Found dashed line.")
+        child.expect('Attendee ID :')
+        print("✅ PASS: Prompted for Attendee ID.")
+        child.sendline(str(attendeeID))
+        print(f"✅ PASS: Entered Attendee ID '{attendeeID}'.")
+        child.expect('Name : ')
+        print("✅ PASS: Prompted for Name.")
+        child.sendline(name)
+        print(f"✅ PASS: Entered Name '{name}'.")
+        child.expect('DOB : ')
+        print("✅ PASS: Prompted for DOB.")
+        child.sendline(DOB)
+        print(f"✅ PASS: Entered DOB '{DOB}'.")
+        child.expect('Gender : ')
+        print("✅ PASS: Prompted for Gender.")
+        child.sendline(gender)
+        print(f"✅ PASS: Entered Gender '{gender}'.")
+        child.expect('Company ID : ')
+        print("✅ PASS: Prompted for Company ID.")
+        child.sendline(companyID)
+        print(f"✅ PASS: Entered Company ID '{companyID}'.")
+        # * are part of the error message so need to escape them in the regex
+        # Pick up database error
+        child.expect(re.escape(f'*** ERROR *** (1366'))        
+        print("✅ PASS: Detected invalid DOB.")
+        validate_menu_top_level(child)
+        child.sendline('x')
+    except pexpect.TIMEOUT:
+        print("❌ FAIL: Timed out waiting for expected text.")
+        print(f"Output before timeout:\n{child.before}")
+    except Exception as e:
+        print(f"❌ FAIL: An error occurred: {e}")
+    finally:
+        child.close(force=True)
+
+#----------------------------------------------------------------------------------------
+# Test Cases: Menu 3 : Check New Attendee Exists by Fetching
+#----------------------------------------------------------------------------------------
+
+def test_add_new_attendee_check_if_exists(attendeeID:str,name:str,DOB:str,gender:str,companyID:str):
+    print("\n--- Running Test: Option 3 (Add New Attendee - Check If Exists) ---")
+    
+    # Remember the -u flag to prevent Python buffering!
+    child = start_program()
+   
+    try:
+        # check if test attendee company ID is invalid before starting the test, if not print a warning that the test may not work as expected
+        validate_menu_top_level(child)
+        child.sendline('99001')
+        print("✅ PASS: Selected Option 99001.")
+        child.expect('Enter Attendee ID : ')
+        child.sendline(str(attendeeID))
+        #child.expect(f'Attendee Details For ID:')
+        print(f"✅ PASS: Found attendee details header for ID {attendeeID}.")
+        child.expect('----------------')
+        print("✅ PASS: Found dashed line.")
+        child.expect(f'Attendee ID: {str(attendeeID)}')
+        print(f"✅ PASS: Found Attendee ID {attendeeID}.")
+        child.expect(f'Name : {name}')
+        print(f"✅ PASS: Found Name {name}.")
+        child.expect(f'DOB : {DOB}')
+        print(f"✅ PASS: Found DOB {DOB}.")
+        child.expect(f'Gender : {gender}')
+        print(f"✅ PASS: Found Gender {gender}.")
+        child.expect(f'Company ID : {str(companyID)}')
+        print(f"✅ PASS: Found Company ID {companyID}.")
+        child.expect('----------------------------------------')
+
+        validate_menu_top_level(child)
+        child.sendline('x')
+    except pexpect.TIMEOUT:
+        print("❌ FAIL: Timed out waiting for expected text.")
+        print(f"Output before timeout:\n{child.before}")
+    except Exception as e:
+        print(f"❌ FAIL: An error occurred: {e}")
+    finally:
+        child.close(force=True)
+
+
+
+def test_add_new_attendee_delete(attendeeID:str):
+    print("\n--- Running Test: Option 3 (Add New Attendee - Delete) ---")
+    
+    # Remember the -u flag to prevent Python buffering!
+    child = start_program()
+   
+    try:
+        # check if test attendee company ID is invalid before starting the test, if not print a warning that the test may not work as expected
+        validate_menu_top_level(child)
+        child.sendline('99002')
+        print("✅ PASS: Selected Option 99002.")
+        child.expect('Enter Attendee ID to delete :')
+        print(f"✅ PASS: Prompted for Attendee ID to delete.")
+        child.sendline(str(attendeeID))
+        #child.expect(f'Attendee Details For ID:')
+        child.sendline(str('y'))
+        child.expect(f'successfully')
+        print(f"✅ PASS: Attendee with ID {attendeeID} deleted successfully.")
+        validate_menu_top_level(child)
+        child.sendline('x')
+    except pexpect.TIMEOUT:
+        print("❌ FAIL: Timed out waiting for expected text.")
+        print(f"Output before timeout:\n{child.before}")
+    except Exception as e:
+        print(f"❌ FAIL: An error occurred: {e}")
+    finally:
+        child.close(force=True)
+
 # TODO Check Inserted Attendee by fetching
 # TODO Check Delete Attendee and check deleted by fetching
+#----------------------------------------------------------------------------------------
+# Test View Rooms
+#-----------------------------------------------------------------------------------------
+def test_view_rooms():
+    print("\n--- Running Test: Option 3 (Add New Attendee - Delete) ---")
+    
+    # Remember the -u flag to prevent Python buffering!
+    child = start_program()
+    
+
+    try:
+        validate_menu_top_level(child)
+        child.sendline('6')
+        print("✅ PASS: Selected Option 6.")
+        child.expect('RoomID    | RoomName | Capacity')
+        print("✅ PASS: Found room list header.")
+        child.expect('1 | Main Hall  | ')
+        print("✅ PASS: Found room 1.")
+        child.expect('2 | Graph Lab  | 120')
+        print("✅ PASS: Found room 2.")
+        child.expect('3 | Cloud Suite  | 180')
+        print("✅ PASS: Found room 3.")
+        child.expect('4 | Innovation Room  | 90')
+        print("✅ PASS: Found room 4.")
+        child.expect('5 | Workshop Studio  | 60')
+        print("✅ PASS: Found room 5.")
+        child.expect('6 | Executive Lounge  | 40')
+        print("✅ PASS: Found room 6.")
+        index = child.expect('7 |')
+        if index == 1:
+            print("❌ FAIL: Unexpected room row found after room 6.")
+        else:
+            print("✅ PASS: No unexpected room rows found after room 6.")
+
+        # Check return to main menu and exit
+        validate_menu_top_level(child)
+        child.sendline('x')
+    except pexpect.TIMEOUT:
+        print("❌ FAIL: Timed out waiting for expected text.")
+        print(f"Output before timeout:\n{child.before}")
+    except Exception as e:
+        print(f"❌ FAIL: An error occurred: {e}")
+    finally:
+        child.close(force=True)
+
 #----------------------------------------------------------------------------------------
 # MAIN
 #----------------------------------------------------------------------------------------
@@ -655,24 +879,38 @@ if __name__ == "__main__":
     args = parser.parse_args()
     quiet = args.quiet
 
-
+    #print("\n" + "="*50 + "\n")
     #test_exit_cleanly()
     #print("\n" + "="*50 + "\n")
     #test_exit_multiple_non_number_inputs()
     #print("\n" + "="*50 + "\n")
+    #print("== test_view_speakers_positive ==")
+    #print("\n" + "="*50 + "\n")
     #test_view_speakers_positive()
     #print("\n" + "="*50 + "\n")
+    #print("== test_view_speakers_negative ==")
+    #print("\n" + "="*50 + "\n")
     #test_view_speakers_negative()
-    #print("\n" + "="*50 + "\n")
-    #test_view_attendees_by_company_positive()
-    #print("\n" + "="*50 + "\n")
-    #test_view_attendees_by_company_multiple()
-    #print("\n" + "="*50 + "\n")
-    #test_view_attendees_by_company_not_valid_company()
-    #print("\n" + "="*50 + "\n")
-    #test_view_attendees_by_company_no_attendees()
-    #print("\n" + "="*50 + "\n")
+    print("\n" + "="*50 + "\n")
+    print("== test_view_attendees_by_company_positive ==")
+    print("\n" + "="*50 + "\n")
+    test_view_attendees_by_company_positive()
+    print("\n" + "="*50 + "\n")
+    print("== test_view_attendees_by_company_multiple ==")
+    print("\n" + "="*50 + "\n")
+    test_view_attendees_by_company_multiple()
+    print("\n" + "="*50 + "\n")
+    test_view_attendees_by_company_not_valid_company()
+    print("\n" + "="*50 + "\n")
+    print("== test_view_attendees_by_company_no_attendees ==")
+    print("\n" + "="*50 + "\n")
+    test_view_attendees_by_company_no_attendees()
+    print("\n" + "="*50 + "\n")
     #test_add_new_attendee_positive(attendeeID=121,name='Joe Kelly',DOB='1970-02-18',gender='Male',companyID='2')
+    #print("\n" + "="*50 + "\n")
+    #test_add_new_attendee_check_if_exists(attendeeID=121,name='Joe Kelly',DOB='1970-02-18',gender='Male',companyID='2')
+    #print("\n" + "="*50 + "\n")
+    #test_add_new_attendee_delete(attendeeID=121)
     #print("\n" + "="*50 + "\n")
     #test_add_new_attendee_negative_existing(attendeeID=121,name='Joe Kelly',DOB='1970-02-18',gender='Male',companyID='2')
     #print("\n" + "="*50 + "\n")
@@ -680,7 +918,16 @@ if __name__ == "__main__":
     #print("\n" + "="*50 + "\n")
     #test_add_new_attendee_negative_existing(attendeeID=101,name='Joe Kelly',DOB='1970-12-18',gender='Male',companyID='2')
     #print("\n" + "="*50 + "\n")
-    test_add_new_attendee_negative_invalid_gender(attendeeID=122,name='Jane Doe',DOB='1980-05-10',gender='Unknown',companyID='2')
-    print("\n" + "="*50 + "\n")
+    #test_add_new_attendee_negative_invalid_gender(attendeeID=122,name='Jane Doe',DOB='1980-05-10',gender='Unknown',companyID='2')
+    #print("\n" + "="*50 + "\n")
     #test_add_new_attendee_negative_invalid_company_id(attendeeID=122,name='Jane Doe',DOB='1980-05-10',gender='Female',companyID='999')
     #print("\n" + "="*50 + "\n")
+    #test_add_new_attendee_negative_invalid_attendee_id(attendeeID='abc',name='Jane Doe',DOB='1980-05-10',gender='Female',companyID='2')
+    #print("\n" + "="*50 + "\n")
+    #test_add_new_attendee_negative_invalid_dob(attendeeID='abc',name='Jane Doe',DOB='ttttt-05-10',gender='Female',companyID='2')
+    #
+    #--------------------------------------------------------------------------------------------
+    print("\n" + "="*50 + "\n")
+    print("== test_view_rooms ==")
+    print("\n" + "="*50 + "\n")
+    test_view_rooms()
