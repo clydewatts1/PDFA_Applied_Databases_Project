@@ -93,6 +93,7 @@ class DAO_Neo4j:
         self.uri = uri
         self.user = user
         self.password = password
+        self.default_password = "neo4j"
         self.database = database
         self.driver = None
 
@@ -108,12 +109,29 @@ class DAO_Neo4j:
 #------------------------------------------------------------------------------
     def connect(self)-> Tuple[Optional[Any], int, str]:
         """Establish a connection to the Neo4j database."""
+        self.driver = None
         try:
+            # try logging on with default password first, if it fails then try with the provided password, this is to handle the case where the neo4j database is reset and the password is reset to the default password
             self.driver = neo4j.GraphDatabase.driver(uri = self.uri, 
+                                                     auth = (self.user,
+                                                              self.default_password),
+                                                    database = self.database)
+            logging.info(f"Successfully connected to Neo4j database: {self.database} with default password.")
+            # try a ping query to ensure the connection is valid, if it fails then try with the provided password
+            with self.driver.session() as session:
+                session.run("RETURN 1")
+            print(f"Successfully connected to Neo4j database: {self.database} with default password.")
+        except neo4j.exceptions.Neo4jError as err:
+            self.driver = None
+            logging.warning(f"Failed to connect to Neo4j database with default password: {err}")
+            logging.info(f"Trying to connect to Neo4j database with provided password.")
+        try:
+            if not self.driver: 
+                self.driver = neo4j.GraphDatabase.driver(uri = self.uri, 
                                                      auth = (self.user, 
                                                            self.password), 
                                                     database = self.database)
-            logging.info(f"Successfully connected to Neo4j database: {self.database}.")
+                logging.info(f"Successfully connected to Neo4j database: {self.database}.")
         except neo4j.exceptions.Neo4jError as err:
             logging.error(f"Error connecting to Neo4j: {err}")
             return None, -1, str(err)
@@ -278,7 +296,32 @@ class DAO_Neo4j:
         RETURN a1, a2
         """
         parameters = {"attendeeID1": attendeeID1, "attendeeID2": attendeeID2}
-        return self.execute_query(query, parameters)    
+        if not self.driver:
+            logging.error("No Neo4j connection established.")
+            return None, -1, "No connection"
+        try:
+            with self.driver.session() as session:
+                result = session.run(query, parameters)
+                records = result.data()
+                logging.debug(f"Query executed successfully: {query}")
+                return records, 0, "Query executed successfully"
+        except neo4j.exceptions.Neo4jError as err:
+            logging.error(f"Error executing query: {query}")
+            if parameters:
+                logging.error(f"With parameters: {parameters}")
+            else:
+                logging.error("No parameters provided for the query.")
+            logging.error(f"Error executing query: {err}")
+            return None, -1, str(err)
+        except Exception as err:
+            logging.error(f"Unexpected error executing query: {query}")
+            if parameters:
+                logging.error(f"With parameters: {parameters}")
+            else:
+                logging.error("No parameters provided for the query.")
+            logging.error(f"Error executing query: {err}")
+            return None, -1, str(err)
+
 
 #------------------------------------------------------------------------------
 # Function: delete_connection
@@ -290,7 +333,32 @@ class DAO_Neo4j:
         DELETE r
         """
         parameters = {"attendeeID1": attendeeID1, "attendeeID2": attendeeID2}
-        return self.execute_query(query, parameters)
+        if not self.driver:
+            logging.error("No Neo4j connection established.")
+            return None, -1, "No connection"
+        try:
+            with self.driver.session() as session:
+                result = session.run(query, parameters)
+                records = result.data()
+                logging.debug(f"Query executed successfully: {query}")
+                return records, 0, "Query executed successfully"
+        except neo4j.exceptions.Neo4jError as err:
+            logging.error(f"Error executing query: {query}")
+            if parameters:
+                logging.error(f"With parameters: {parameters}")
+            else:
+                logging.error("No parameters provided for the query.")
+            logging.error(f"Error executing query: {err}")
+            return None, -1, str(err)
+        except Exception as err:
+            logging.error(f"Unexpected error executing query: {query}")
+            if parameters:
+                logging.error(f"With parameters: {parameters}")
+            else:
+                logging.error("No parameters provided for the query.")
+            logging.error(f"Error executing query: {err}")
+            return None, -1, str(err)
+
     
 #------------------------------------------------------------------------------
 # Function: delete_all_connections
@@ -298,16 +366,32 @@ class DAO_Neo4j:
     def delete_all_connections(self) -> Tuple[Optional[Any], int, str]:
         """Delete all connections from the Neo4j database."""
         query = "MATCH ()-[r:CONNECTED_TO]-() DELETE r"
+        if not self.driver:
+            logging.error("No Neo4j connection established.")
+            return None, -1, "No connection"
         try:
-            self.execute_query(query, None)
-            logging.info("All connections deleted successfully from Neo4j database.")
-            return None, 0, "All connections deleted successfully"
+            with self.driver.session() as session:
+                result = session.run(query, parameters)
+                records = result.data()
+                logging.debug(f"Query executed successfully: {query}")
+                return records, 0, "Query executed successfully"
         except neo4j.exceptions.Neo4jError as err:
-            logging.error(f"Error deleting all connections from Neo4j database: {err}")
+            logging.error(f"Error executing query: {query}")
+            if parameters:
+                logging.error(f"With parameters: {parameters}")
+            else:
+                logging.error("No parameters provided for the query.")
+            logging.error(f"Error executing query: {err}")
             return None, -1, str(err)
         except Exception as err:
-            logging.error(f"Unexpected error deleting all connections from Neo4j database: {err}")
+            logging.error(f"Unexpected error executing query: {query}")
+            if parameters:
+                logging.error(f"With parameters: {parameters}")
+            else:
+                logging.error("No parameters provided for the query.")
+            logging.error(f"Error executing query: {err}")
             return None, -1, str(err)
+
     
 #------------------------------------------------------------------------------
 # Function: get_connected_attendees
@@ -319,16 +403,32 @@ class DAO_Neo4j:
         RETURN distinct connected.AttendeeID
         """
         parameters = {}
+        if not self.driver:
+            logging.error("No Neo4j connection established.")
+            return None, -1, "No connection"
         try:
-            result = self.execute_query(query, parameters)
-            logging.info(f"Connected attendees retrieved successfully for AttendeeID: {attendeeID}")
-            return result
+            with self.driver.session() as session:
+                result = session.run(query, parameters)
+                records = result.data()
+                logging.debug(f"Query executed successfully: {query}")
+                return records, 0, "Query executed successfully"
         except neo4j.exceptions.Neo4jError as err:
-            logging.error(f"Error retrieving connected attendees for AttendeeID {attendeeID}: {err}")
+            logging.error(f"Error executing query: {query}")
+            if parameters:
+                logging.error(f"With parameters: {parameters}")
+            else:
+                logging.error("No parameters provided for the query.")
+            logging.error(f"Error executing query: {err}")
             return None, -1, str(err)
         except Exception as err:
-            logging.error(f"Unexpected error retrieving connected attendees for AttendeeID {attendeeID}: {err}")
+            logging.error(f"Unexpected error executing query: {query}")
+            if parameters:
+                logging.error(f"With parameters: {parameters}")
+            else:
+                logging.error("No parameters provided for the query.")
+            logging.error(f"Error executing query: {err}")
             return None, -1, str(err)
+
     
   
 #------------------------------------------------------------------------------
@@ -337,20 +437,37 @@ class DAO_Neo4j:
     def check_connection_exists(self, attendeeID1, attendeeID2) -> Tuple[Optional[Any], int, str]:
         """Check if a connection exists between two attendees."""
         query = f"""
-        MATCH (a1:Attendee {{AttendeeID: {attendeeID1}}})-[:CONNECTED_TO]-(a2:Attendee {{AttendeeID: {attendeeID2}}})
+        MATCH (a1:Attendee {{AttendeeID: {attendeeID1}}})
+        MATCH (a2:Attendee {{AttendeeID: {attendeeID2}}})
+        MERGE (a1)-[:CONNECTED_TO]->(a2)
         RETURN a1, a2
         """
         parameters = {}
+        if not self.driver:
+            logging.error("No Neo4j connection established.")
+            return None, -1, "No connection"
         try:
-            result = self.execute_query(query, parameters)
-            logging.info(f"Connection existence check completed successfully for AttendeeID1: {attendeeID1}, AttendeeID2: {attendeeID2}")
-            return result
+            with self.driver.session() as session:
+                result = session.run(query, parameters)
+                records = result.data()
+                logging.debug(f"Query executed successfully: {query}")
+                return records, 0, "Query executed successfully"
         except neo4j.exceptions.Neo4jError as err:
-            logging.error(f"Error checking connection existence for AttendeeID1 {attendeeID1}, AttendeeID2 {attendeeID2}: {err}")
+            logging.error(f"Error executing query: {query}")
+            if parameters:
+                logging.error(f"With parameters: {parameters}")
+            else:
+                logging.error("No parameters provided for the query.")
+            logging.error(f"Error executing query: {err}")
             return None, -1, str(err)
         except Exception as err:
-            logging.error(f"Unexpected error checking connection existence for AttendeeID1 {attendeeID1}, AttendeeID2 {attendeeID2}: {err}")
-            return None, -1, str(err)   
+            logging.error(f"Unexpected error executing query: {query}")
+            if parameters:
+                logging.error(f"With parameters: {parameters}")
+            else:
+                logging.error("No parameters provided for the query.")
+            logging.error(f"Error executing query: {err}")
+            return None, -1, str(err)
 
 #------------------------------------------------------------------------------------------------------
 # Data Access Object (DAO) for MySQL
@@ -710,11 +827,11 @@ class DAO_MySQL:
         if not self.dao_neo4j:
             logging.error("Neo4j DAO is not initialized.")
             return None, -1, "No Neo4j DAO"
-        _, err = self.create_relationship_attendees_temporary_table()
-        if err:
-            logging.error("Error creating relationship attendees temporary table: %s", err)
-            print(f"*** ERROR *** Creating relationship attendees temporary table: ({err})")
-            return None, -1, str(err)
+        _, error_code, error_message = self.create_relationship_attendees_temporary_table()
+        if error_code != 0:
+            logging.error("Error creating relationship attendees temporary table: %s", error_message)
+            print(f"*** ERROR *** Creating relationship attendees temporary table: ({error_message})")
+            return None, -1, str(error_message)
         # Get connected attendees from Neo4j and return the results
         results, error_code, error_message = self.dao_neo4j.get_connected_attendees(attendeeID)
         if error_code != 0:
@@ -725,6 +842,7 @@ class DAO_MySQL:
         if error_code != 0:
             logging.error(f"Error deleting all attendee connections: {error_message}")
             return None, -1, str(error_message)
+        logging.debug(f"Results retrieved: {results}")
         for record in results:
             connectedAttendeeID = record['connected.AttendeeID']
             logging.info(f"Connected AttendeeID: {connectedAttendeeID} for AttendeeID: {attendeeID}")
@@ -1630,9 +1748,9 @@ class Menu:
                 logging.warning("Invalid input. Please enter a numeric attendee ID.")
                 print(f"*** ERROR *** Invalid attendee ID")
                 continue
-            attendeeResults, err = self.dao_mysql.read_attendee(attendeeId)
-            if err:
-                logging.error("Error checking if attendee exists: %s", err)
+            attendeeResults, error_code, error_msg = self.dao_mysql.read_attendee(attendeeId)
+            if error_code != 0:
+                logging.error("Error checking if attendee exists: %s", error_msg)
                 print(f"*** ERROR *** Invalid attendee ID")
                 # Better error but above is as per requirements
                 #print(f'*** ERROR *** Error checking if attendee exists: ({err.args[0]}, "{err.args[1]}")')
@@ -1642,7 +1760,8 @@ class Menu:
                 print(f"*** ERROR *** Attendee does not exist")
                 # exit the loop and return to main menu
                 break
-            attendeeName = attendeeResults[0]['attendeeName']  # Assuming the attendee name is in the 'name' column
+            #print(f"Attendee Details for ID: {attendeeResults}")
+            attendeeName = attendeeResults['attendeeName']  # Assuming the attendee name is in the 'name' column
             logging.info(f"Attendee found: {attendeeName} (ID: {attendeeId})")
             print(f"Attendee Name: {attendeeName}")
             # Create a temporary table in MySQL to hold the connected attendees for this attendee   
@@ -1664,7 +1783,6 @@ class Menu:
                 logging.error("Error getting connections from Neo4j: %s", error_msg)
                 print(f"*** ERROR *** Getting connections from Neo4j: ({error_msg})")
                 break
-            print("Results: ", results)
             report, error_code, error_msg = self.dao_mysql.report_connected_attendees(attendeeId)
             if error_code != 0:
                 logging.error("Error generating connected attendees report: %s", error_msg)
@@ -1714,6 +1832,7 @@ class Menu:
                 continue
             # Check if the connection already exists in Neo4j
             connectionResults, error_code, error_msg = self.dao_neo4j.check_connection_exists(attendeeID1, attendeeID2)
+            #logging.debug(f"Connection results: {connectionResults}, Error code: {error_code}, Error message: {error_msg}")
             if error_code != 0:
                 logging.error("Error checking if connection exists in Neo4j: %s", error_msg)
                 print(f"*** ERROR *** Checking connection in Neo4j: ({error_msg})")
@@ -1721,7 +1840,7 @@ class Menu:
             if connectionResults and len(connectionResults) > 0:
                 logging.info(f"Connection already exists between attendees {attendeeID1} and {attendeeID2}")
                 print(f"*** ERROR *** Connection already exists between attendees {attendeeID1} and {attendeeID2}")
-                continue
+                break
             # Add the connection to Neo4j
             _, error_code, error_msg = self.dao_neo4j.merge_connection(attendeeID1, attendeeID2)
             if error_code != 0:
@@ -2204,20 +2323,18 @@ def main():
     parser.add_argument("--neo4j-password", required=False,default="neo4jneo4j", help="Neo4j password")
     parser.add_argument("--neo4j-database", required=False,default="attendeeNetwork", help="Neo4j database")
     parser.add_argument("--log-level", required=False,default="INFO", help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
-    parser.add_argument("--log-file", required=False,default="app.log", help="Log file path")
     # debug level logging for testing
     parser.add_argument("--debug", action="store_true", help="Enable debug level logging")
     args = parser.parse_args()
 
 
-    # Keep logging simple for now , log to file and optionally to console
+    # Write logs to main.log and reset it at the start of each run.
     logging.basicConfig(
             level=getattr(logging, args.log_level.upper(), logging.INFO),
             # add file and function name and line number to the log messages for better debugging
             format="%(asctime)s - %(levelname)s - %(filename)s - %(funcName)s - %(lineno)d - %(message)s",
             handlers=[
-                logging.FileHandler(args.log_file),
-                logging.StreamHandler(sys.stdout)
+                logging.FileHandler("main.log", mode="w")
             ]
         )
     logging.info("Starting the application...")

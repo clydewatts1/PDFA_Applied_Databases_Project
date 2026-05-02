@@ -1,1 +1,5 @@
 ALTER CURRENT USER SET PASSWORD FROM 'neo4jneo4j' TO 'neo4j';
+
+
+MATCH (a1{AttendeeID:101})-[:CONNECTED_TO]-(a2)
+RETURN a1, a2
