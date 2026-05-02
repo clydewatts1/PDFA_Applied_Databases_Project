@@ -2175,35 +2175,25 @@ class Menu:
 #------------------------------------------------------------------------------
     def handle_selection(self, selection):
         """Handle the user's menu selection."""
+        if not self.dao_mysql or not self.dao_neo4j:
+            logging.error("MySQL or Neo4j DAO is not initialized.")
+            print(f"*** ERROR *** MySQL or Neo4j DAO is not initialized.")
+            return
         if selection == "1":
             logging.info("You selected: View Speakers & Sessions")
-            if not self.dao_mysql:
-                logging.error("MySQL DAO is not initialized.")
-                return
             speakerName = input("Enter speaker name : ")
             self.dao_mysql.print_sessions_report(speakerName)
         elif selection == "2":
             logging.info("You selected: View Attendees by Company")
-            if not self.dao_mysql:
-                logging.error("MySQL DAO is not initialized.")
-                return
             self.menu_print_attendees_by_company()
         elif selection == "3":
             logging.info("You selected: Add New Attendee")
-            if not self.dao_mysql:
-                logging.error("MySQL DAO is not initialized.")
-                return
             self.menu_add_attendee()
         elif selection == "4":
-            if not self.dao_mysql or not self.dao_neo4j:
-                logging.error("MySQL or Neo4j DAO is not initialized.")
-                return
+            logging.info("You selected: View Connected Attendees")
             self.menu_view_connected_attendees()
         elif selection == "5":
             logging.info("You selected: Add Attendee Connection")
-            if not self.dao_mysql or not self.dao_neo4j:
-                logging.error("MySQL or Neo4j DAO is not initialized.")
-                return
             self.menu_add_attendee_connection()
         elif selection == "6":
             logging.info("You selected: View Rooms")
